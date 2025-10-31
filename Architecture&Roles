@@ -1,0 +1,275 @@
+<!-- Chosen Palette: Modern Tech Minimalist (Primary: Slate-50, Accent: Indigo-600, Text: Slate-800) -->
+<!-- Application Structure Plan: The application uses a Hierarchical Explorer structure. The main page is anchored by a static Architecture Diagram (Control Plane vs. Data Plane) at the top. Below this, the 'Role Explorer' section uses clickable buttons (Account Admin, Metastore Admin, etc.) to dynamically update a central content card. This card shows the role's function, responsibility, and a specific 'Algorithmic Trading Scenario' that justifies the role's existence. This structure was chosen because the report's core content is highly organizational (roles and hierarchy), and dynamic interaction is the best way to teach complex governance concepts. -->
+<!-- Visualization & Content Choices: Report Info -> Goal -> Viz/Presentation Method -> Interaction -> Justification -> Library/Method - Confirming NO SVG/Mermaid, supporting the DESIGNED structure. Control/Data Plane -> Organize Architecture -> HTML/CSS Diagram -> None -> Static Visual Anchor -> HTML/Tailwind. Roles (4 Types) -> Explain Governance -> Clickable Buttons + Dynamic Text Card -> Click/Update -> Simplifies complex governance roles contextually -> Vanilla JS/HTML. Workspace Roles -> Show Hierarchy -> Toggles/Pills -> Click/Update Text -> Relates Dev/Test/Prod isolation to high-stakes trading -> Vanilla JS/HTML. -->
+<!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Module 2: Databricks Architecture & Roles</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <style>
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 768px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+        @media (max-width: 640px) {
+            .chart-container {
+                height: 300px;
+            }
+        }
+        .scroll-section {
+            scroll-margin-top: 6rem;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans">
+
+    <!-- Header & Navigation -->
+    <header class="sticky top-0 bg-white shadow-md z-10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-indigo-600">M2: Architecture & Roles</h1>
+            <nav>
+                <a href="#architecture" class="text-sm font-medium text-slate-600 hover:text-indigo-600 mr-4">Architecture</a>
+                <a href="#roles" class="text-sm font-medium text-slate-600 hover:text-indigo-600 mr-4">Roles</a>
+                <a href="#workspace" class="text-sm font-medium text-slate-600 hover:text-indigo-600">Workspaces</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+
+        <!-- Introduction -->
+        <section class="mb-12">
+            <h2 class="text-3xl font-extrabold text-slate-900 mb-4">Databricks High-Level Architecture</h2>
+            <p class="text-lg text-slate-600">
+                Understanding the Databricks architecture is fundamental to ensuring **security, reliability, and governance**—three non-negotiables for our Algorithmic Trading firm. The core design relies on separating control and execution into two distinct planes, which we will explore below.
+            </p>
+        </section>
+
+        <!-- 1. Architecture Overview (Static Model) -->
+        <section id="architecture" class="scroll-section mb-16 p-6 bg-white rounded-xl shadow-lg">
+            <h3 class="text-2xl font-semibold text-slate-900 mb-6">1. Control Plane vs. Data Plane Separation</h3>
+            <p class="text-slate-600 mb-8">The core concept is that management (Control) stays with Databricks, while the data and processing power (Data) remain entirely in your cloud account (Azure, GCP, or AWS), guaranteeing data residency and security.</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+                <div class="col-span-1 p-4 border-r border-slate-200 md:border-r-indigo-200 md:border-dashed">
+                    <div class="text-4xl mb-3">⚙️</div>
+                    <h4 class="text-xl font-bold text-indigo-600 mb-2">Control Plane</h4>
+                    <p class="text-sm text-slate-500 font-medium">(Databricks Account)</p>
+                    <ul class="text-sm text-slate-700 mt-3 space-y-1">
+                        <li>Web Application & UI</li>
+                        <li>Notebook & Cluster Config</li>
+                        <li>**Unity Catalog (Metastore)**</li>
+                        <li>Job Orchestration</li>
+                        <li>Backend Services</li>
+                    </ul>
+                </div>
+
+                <div class="col-span-1 md:col-span-1 flex items-center justify-center">
+                    <div class="text-sm font-bold text-indigo-600 tracking-wider p-2 bg-indigo-50 rounded-full border border-indigo-300">
+                        SECURE CONNECTION
+                    </div>
+                </div>
+
+                <div class="col-span-1 p-4 border-l border-slate-200 md:border-l-indigo-200 md:border-dashed">
+                    <div class="text-4xl mb-3">☁️</div>
+                    <h4 class="text-xl font-bold text-indigo-600 mb-2">Data Plane</h4>
+                    <p class="text-sm text-slate-500 font-medium">(Your Cloud Account)</p>
+                    <ul class="text-sm text-slate-700 mt-3 space-y-1">
+                        <li>**Compute Clusters** (Data Processed)</li>
+                        <li>**Storage Buckets** (Data Stored)</li>
+                        <li>Client Data & Metadata</li>
+                        <li>Network Isolation</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <p class="text-sm text-center text-slate-500 mt-6">
+                *The Data Plane is where your high-volume, sensitive tick data resides and is processed. Your data never leaves your cloud environment.*
+            </p>
+        </section>
+
+        <!-- 2. Role Explorer (Interactive Section) -->
+        <section id="roles" class="scroll-section mb-16 p-6 bg-indigo-50 rounded-xl shadow-inner">
+            <h3 class="text-2xl font-semibold text-slate-900 mb-6">2. Role Explorer: Governance in Algorithmic Trading</h3>
+            <p class="text-slate-600 mb-6">Governance is distributed. Click any role below to see their primary responsibility and a high-stakes scenario where they are critical in the trading environment.</p>
+
+            <div class="flex flex-wrap gap-3 mb-8 justify-center">
+                <button id="btn-admin-1" class="role-btn bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium shadow-md transition duration-150 hover:bg-indigo-700">Account Administrator</button>
+                <button id="btn-admin-2" class="role-btn bg-white text-indigo-600 px-4 py-2 rounded-lg font-medium shadow-md border border-indigo-300 transition duration-150 hover:bg-indigo-50">Metastore Administrator</button>
+                <button id="btn-admin-3" class="role-btn bg-white text-indigo-600 px-4 py-2 rounded-lg font-medium shadow-md border border-indigo-300 transition duration-150 hover:bg-indigo-50">Workspace Administrator</button>
+                <button id="btn-admin-4" class="role-btn bg-white text-indigo-600 px-4 py-2 rounded-lg font-medium shadow-md border border-indigo-300 transition duration-150 hover:bg-indigo-50">Object Owner</button>
+            </div>
+
+            <div id="role-details" class="bg-white p-6 rounded-lg shadow-lg border-t-4 border-indigo-600">
+                <h4 id="role-title" class="text-xl font-bold text-slate-900 mb-3">Account Administrator</h4>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2">
+                        <p id="role-responsibility" class="text-slate-700 mb-4">
+                            **Responsibility (The "What"):** Manages the entire Databricks Account, controlling high-level resources like creating workspaces, users, groups, service principals, and the core **Metastore(s)**.
+                        </p>
+                        <p class="text-sm font-semibold text-indigo-600 mt-2">Core Domain: Workspace & High-Level Permissions</p>
+                    </div>
+                    <div>
+                        <div class="p-4 bg-red-50 border border-red-200 rounded-lg">
+                            <p class="font-bold text-red-700 mb-2">Trading Scenario: Critical Isolation</p>
+                            <p id="role-scenario" class="text-sm text-red-700">
+                                This role ensures the **Production Trading Workspace** is entirely separated and locked down from the **Dev/Test Workspaces**, preventing unauthorized code from ever touching live capital.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. Workspace Hierarchy -->
+        <section id="workspace" class="scroll-section mb-16 p-6 bg-white rounded-xl shadow-lg">
+            <h3 class="text-2xl font-semibold text-slate-900 mb-6">3. Platform Hierarchy: Workspaces for Isolation</h3>
+            <p class="text-slate-600 mb-6">Workspaces are collaborative environments that separate different stages of our Algorithmic Trading pipeline. They rely on the Metastore for a consistent view of data.</p>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div id="tab-dev" class="workspace-tab p-4 bg-indigo-50 border border-indigo-200 rounded-lg cursor-pointer hover:bg-indigo-100 transition duration-150" onclick="updateWorkspace('dev')">
+                    <div class="font-bold text-lg text-indigo-700">Dev Workspace</div>
+                    <p class="text-sm text-indigo-500">Experimentation & Backtesting</p>
+                </div>
+                <div id="tab-test" class="workspace-tab p-4 bg-slate-100 rounded-lg cursor-pointer hover:bg-slate-200 transition duration-150" onclick="updateWorkspace('test')">
+                    <div class="font-bold text-lg text-slate-700">Test Workspace</div>
+                    <p class="text-sm text-slate-500">Validation & Regression</p>
+                </div>
+                <div id="tab-prod" class="workspace-tab p-4 bg-slate-100 rounded-lg cursor-pointer hover:bg-slate-200 transition duration-150" onclick="updateWorkspace('prod')">
+                    <div class="font-bold text-lg text-slate-700">Prod Workspace</div>
+                    <p class="text-sm text-slate-500">Live Execution & Trading</p>
+                </div>
+            </div>
+            
+            <div id="workspace-content" class="mt-6 p-6 bg-slate-50 rounded-lg border border-slate-200">
+                <h4 id="workspace-title" class="text-xl font-bold text-indigo-700 mb-3">Dev Workspace: Experimentation & Backtesting</h4>
+                <p id="workspace-description" class="text-slate-700">
+                    This is the flexible, low-cost environment where Quantitative Analysts (Quants) develop and test new trading signals and models. It uses historical, sandboxed data. **Low risk, high iteration speed.**
+                </p>
+                <p class="text-sm font-semibold text-slate-500 mt-4">Required Admin Role: Workspace Administrator (for this specific workspace).</p>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        const roleData = {
+            'btn-admin-1': {
+                title: 'Account Administrator',
+                responsibility: 'Manages the entire Databricks Account, controlling high-level resources like creating workspaces, users, groups, service principals, and the core **Metastore(s)**.',
+                scenario: 'This role ensures the **Production Trading Workspace** is entirely separated and locked down from the **Dev/Test Workspaces**, preventing unauthorized code from ever touching live capital.'
+            },
+            'btn-admin-2': {
+                title: 'Metastore Administrator',
+                responsibility: 'Manages the **data catalog (Unity Catalog)**. Defines and controls access to all data objects (tables, views) across workspaces, ensuring central governance.',
+                scenario: 'This role is paramount for compliance, ensuring that only **validated, audited, and cleaned historical market data** tables are made accessible to the Production Trading algorithms.'
+            },
+            'btn-admin-3': {
+                title: 'Workspace Administrator',
+                responsibility: 'Manages administration **within a specific workspace** (e.g., the Prod or Dev environment). Controls cluster configuration, user access to notebooks, and workspace-level permissions.',
+                scenario: 'In the **Prod Workspace**, this role strictly manages and monitors the compute resources to ensure **ultra-low latency** for real-time trading execution.'
+            },
+            'btn-admin-4': {
+                title: 'Object Owner',
+                responsibility: 'The user who **creates a specific object** (e.g., a table, a notebook, or a feature asset). They automatically receive permission to manage that object.',
+                scenario: 'A Data Scientist creates a new **trading signal feature table**. They are the initial Owner, responsible for testing and initial permissions before elevating the asset to the Metastore Admin for official governance.'
+            }
+        };
+
+        const workspaceData = {
+            'dev': {
+                title: 'Dev Workspace: Experimentation & Backtesting',
+                description: 'This is the flexible, low-cost environment where Quantitative Analysts (Quants) develop and test new trading signals and models. It uses historical, sandboxed data. **Low risk, high iteration speed.**'
+            },
+            'test': {
+                title: 'Test Workspace: Validation & Regression',
+                description: 'This environment runs the final, automated regression and stress tests on the models approved from Dev. It confirms model stability, latency, and compliance before deployment to Production. **Controlled risk, high quality assurance.**'
+            },
+            'prod': {
+                title: 'Prod Workspace: Live Execution & Trading',
+                description: 'The highly secured environment responsible for running the live, capital-at-risk trading algorithms using real-time market data. **Zero tolerance for failure, maximum security.**'
+            }
+        };
+
+        const roleButtons = document.querySelectorAll('.role-btn');
+        const roleTitle = document.getElementById('role-title');
+        const roleResponsibility = document.getElementById('role-responsibility');
+        const roleScenario = document.getElementById('role-scenario');
+
+        function updateRole(id) {
+            const data = roleData[id];
+
+            // Update content
+            roleTitle.textContent = data.title;
+            roleResponsibility.innerHTML = `**Responsibility (The "What"):** ${data.responsibility}`;
+            roleScenario.textContent = data.scenario;
+
+            // Update button styles
+            roleButtons.forEach(btn => {
+                if (btn.id === id) {
+                    btn.classList.add('bg-indigo-600', 'text-white');
+                    btn.classList.remove('bg-white', 'text-indigo-600', 'border-indigo-300', 'hover:bg-indigo-50');
+                } else {
+                    btn.classList.remove('bg-indigo-600', 'text-white');
+                    btn.classList.add('bg-white', 'text-indigo-600', 'border-indigo-300', 'hover:bg-indigo-50');
+                }
+            });
+        }
+
+        roleButtons.forEach(button => {
+            button.addEventListener('click', () => updateRole(button.id));
+        });
+
+        // Initialize with Account Admin
+        document.addEventListener('DOMContentLoaded', () => {
+            updateRole('btn-admin-1');
+            updateWorkspace('dev');
+        });
+
+        const workspaceTabs = document.querySelectorAll('.workspace-tab');
+        const workspaceTitle = document.getElementById('workspace-title');
+        const workspaceDescription = document.getElementById('workspace-description');
+        const workspaceContent = document.getElementById('workspace-content');
+
+        function updateWorkspace(env) {
+            const data = workspaceData[env];
+
+            // Update content
+            workspaceTitle.textContent = data.title;
+            workspaceDescription.innerHTML = data.description;
+
+            // Update tab styles
+            workspaceTabs.forEach(tab => {
+                tab.classList.remove('bg-indigo-50', 'border-indigo-200');
+                tab.classList.add('bg-slate-100');
+                if (tab.id === `tab-${env}`) {
+                    tab.classList.add('bg-indigo-50', 'border-indigo-200');
+                    tab.classList.remove('bg-slate-100');
+                }
+            });
+            
+            // Update content box color based on environment
+            if (env === 'prod') {
+                workspaceContent.classList.remove('bg-slate-50');
+                workspaceContent.classList.add('bg-red-50', 'border-red-400');
+                workspaceTitle.classList.remove('text-indigo-700');
+                workspaceTitle.classList.add('text-red-700');
+            } else {
+                workspaceContent.classList.remove('bg-red-50', 'border-red-400');
+                workspaceContent.classList.add('bg-slate-50');
+                workspaceTitle.classList.remove('text-red-700');
+                workspaceTitle.classList.add('text-indigo-700');
+            }
+        }
+    </script>
+</body>
+</html>
