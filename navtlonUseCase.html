@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Sentinel: Project Explorer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chosen Palette: "Calm Harmony" (Warm Neutrals: bg-stone-50, text-stone-800. Complements: bg-white, border-stone-200. Accent: blue-600 for links/active states) -->
+    <!-- Application Structure Plan: Designed a "Project Explorer" SPA with a persistent top navigation (Overview, Project Lifecycle, Tech Stack, Production Blueprint). This structure allows non-linear exploration. The 'Project Lifecycle' uses an interactive stepper. The new 'Production Blueprint' uses internal tabs/buttons to switch between detailed Schemas/dbt logic and the Cloud-Agnostic Stacks. This nested interactive structure breaks down the most complex technical details (IaC and ELT logic) into easily digestible, self-contained views, enhancing user understanding of the production requirements. -->
+    <!-- Visualization & Content Choices: Content is highly tabular and technical. [Schemas/dbt] -> Goal: Detail Data Structure and Logic -> Presentation: HTML Tables -> Interaction: Internal button toggle between Schemas and dbt models. [Cloud Stacks] -> Goal: Comparison of IaC/Services -> Presentation: Three separate tables -> Interaction: Button toggle (AWS, GCP, Azure) to display the selected stack. -> Justification: Tabs/Toggles are optimal for comparing dense, structured data sets. Library: Vanilla JS for all navigation and internal toggles. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        .page-content {
+            display: none;
+        }
+        .page-content.active {
+            display: block;
+        }
+
+        .nav-button {
+            transition: all 0.2s ease-in-out;
+            border-bottom: 2px solid transparent;
+        }
+        .nav-button.active {
+            border-bottom-color: #2563eb; /* blue-600 */
+            color: #2563eb;
+        }
+        .nav-button:hover {
+            border-bottom-color: #9ca3af; /* gray-400 */
+            color: #374151; /* gray-700 */
+        }
+
+        .step-item {
+            transition: all 0.2s ease-in-out;
+        }
+        .step-item.active {
+            border-color: #2563eb; /* blue-600 */
+            background-color: #2563eb;
+            color: white;
+        }
+        .step-item.active .step-text {
+            color: #2563eb;
+            font-weight: 600;
+        }
+        .step-line {
+            height: 2px;
+            background-color: #e5e7eb; /* gray-200 */
+            flex: 1;
+            min-width: 2rem;
+        }
+        
+        .phase-content, .production-content {
+            display: none;
+        }
+        .phase-content.active, .production-content.active {
+            display: block;
+        }
+        
+        .cloud-stack-content {
+            display: none;
+        }
+        .cloud-stack-content.active {
+            display: block;
+        }
+        
+        .chart-container { 
+            position: relative; 
+            width: 100%; 
+            max-width: 800px; 
+            margin-left: auto; 
+            margin-right: auto; 
+            height: 400px; 
+            max-height: 50vh; 
+        }
+
+        table th {
+            background-color: #f9fafb; /* gray-50 */
+        }
+        
+        .sub-nav-button {
+            transition: all 0.2s ease-in-out;
+            border-bottom: 2px solid transparent;
+        }
+        .sub-nav-button.active {
+            border-bottom-color: #2563eb; /* blue-600 */
+            font-weight: 600;
+            color: #2563eb;
+        }
+    </style>
+</head>
+<body class="bg-stone-50 text-stone-800 antialiased">
+
+    <header class="sticky top-0 z-50 w-full bg-white/95 backdrop-blur-sm shadow-sm">
+        <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex-shrink-0 flex items-center">
+                    <h1 class="text-2xl font-bold text-blue-600">The Sentinel</h1>
+                </div>
+                <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                    <button class="nav-button active inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500" data-target="page-overview">
+                        Overview
+                    </button>
+                    <button class="nav-button inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500" data-target="page-lifecycle">
+                        Project Lifecycle
+                    </button>
+                    <button class="nav-button inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500" data-target="page-stack">
+                        Tech Stack (Original)
+                    </button>
+                    <button class="nav-button inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500" data-target="page-production">
+                        Production Blueprint
+                    </button>
+                </div>
+                <div class="sm:hidden">
+                    <select id="mobile-nav" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        <option value="page-overview">Overview</option>
+                        <option value="page-lifecycle">Project Lifecycle</option>
+                        <option value="page-stack">Tech Stack (Original)</option>
+                        <option value="page-production">Production Blueprint</option>
+                    </select>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 min-h-screen">
+        
+        <!-- Existing Pages (Overview, Lifecycle, Original Stack) are unchanged and omitted for brevity -->
+        <!-- Start of Existing Page Blocks (Unchanged for Context) -->
+        <div id="page-overview" class="page-content active space-y-8">
+            <div class="bg-white p-6 sm:p-8 rounded-lg shadow-sm border border-stone-200">
+                <h2 class="text-3xl font-bold tracking-tight text-stone-900 mb-4">The Story: NovaPay's Crisis</h2>
+                <div class="space-y-6 text-stone-700 leading-relaxed">
+                    <p>This application provides an interactive explorer for **The Sentinel**, a complete, end-to-end data engineering project designed for the high-stakes FinTech domain. It's built to demonstrate every major concept in modern data engineering, from real-time streaming to batch processing and machine learning integration.</p>
+                    <div>
+                        <h3 class="text-xl font-semibold text-stone-800 mb-2">The Setting</h3>
+                        <p><strong class="font-semibold text-blue-600">NovaPay</strong> is a booming digital payments and peer-to-peer (P2P) transfer platform. Transactions are instantaneous, and their volume now exceeds 50 million events per day. Their existing batch-only fraud system is failing, leading to significant financial losses and customer trust erosion.</p>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-semibold text-stone-800 mb-2">The Mission: Building The Sentinel</h3>
+                        <p>Our mission is to build **The Sentinel**, a new data platform designed to operate in **milliseconds**. This system must ingest and process raw transaction events, combine them with static user data, calculate real-time velocity features, and serve a unified feature set to an anti-fraud Machine Learning (ML) model before the transaction settles. The Sentinel will be the platform's financial guardian.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white p-6 sm:p-8 rounded-lg shadow-sm border border-stone-200">
+                <h2 class="text-3xl font-bold tracking-tight text-stone-900 mb-6">Core Deliverables</h2>
+                <p class="text-lg text-stone-600 mb-6">The project is designed to produce five key, high-impact deliverables that form the backbone of a modern data platform.</p>
+                <ul class="space-y-4">
+                    <li class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <span class="inline-flex items-center justify-center h-6 w-6 rounded-full bg-blue-100 text-blue-800">
+                                <span class="font-bold text-sm">1</span>
+                            </span>
+                        </div>
+                        <p class="ml-4 text-lg text-stone-700">A robust, event-driven data ingestion pipeline.</p>
+                    </li>
+                    <li class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <span class="inline-flex items-center justify-center h-6 w-6 rounded-full bg-blue-100 text-blue-800">
+                                <span class="font-bold text-sm">2</span>
+                            </span>
+                        </div>
+                        <p class="ml-4 text-lg text-stone-700">A Lakehouse architecture (Delta Lake/Iceberg) supporting ACID properties.</p>
+                    </li>
+                    <li class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <span class="inline-flex items-center justify-center h-6 w-6 rounded-full bg-blue-100 text-blue-800">
+                                <span class="font-bold text-sm">3</span>
+                            </span>
+                        </div>
+                        <p class="ml-4 text-lg text-stone-700">Simultaneous Batch (for reporting) and Stream (for real-time scoring) processing.</p>
+                    </li>
+                    <li class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <span class="inline-flex items-center justify-center h-6 w-6 rounded-full bg-blue-100 text-blue-800">
+                                <span class="font-bold text-sm">4</span>
+                            </span>
+                        </div>
+                        <p class="ml-4 text-lg text-stone-700">A well-defined orchestration layer (Airflow).</p>
+                    </li>
+                    <li class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <span class="inline-flex items-center justify-center h-6 w-6 rounded-full bg-blue-100 text-blue-800">
+                                <span class="font-bold text-sm">5</span>
+                            </span>
+                        </div>
+                        <p class="ml-4 text-lg text-stone-700">A low-latency Feature Store for ML consumption.</p>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div id="page-lifecycle" class="page-content space-y-8">
+            <div class="bg-white p-6 sm:p-8 rounded-lg shadow-sm border border-stone-200">
+                <h2 class="text-3xl font-bold tracking-tight text-stone-900 mb-4">Project Lifecycle: The Data Flow</h2>
+                <p class="text-lg text-stone-600 mb-8">This section details the complete, end-to-end flow of data through The Sentinel platform, from initial ingestion to final consumption. The project is broken down into six distinct phases, each building upon the last. Use the stepper below to navigate between the phases and explore the components, descriptions, and data engineering concepts utilized in each one.</p>
+
+                <div class="w-full mb-8 overflow-x-auto">
+                    <div class="flex items-center justify-between min-w-max p-4">
+                        
+                        <div class="flex flex-col items-center">
+                            <button class="step-item active flex items-center justify-center w-10 h-10 border-2 border-gray-300 rounded-full font-bold text-gray-500" data-phase="phase-1-content">1</button>
+                            <span class="step-text active mt-2 text-sm text-gray-500 text-center">Ingestion</span>
+                        </div>
+                        
+                        <div class="step-line"></div>
+
+                        <div class="flex flex-col items-center">
+                            <button class="step-item flex items-center justify-center w-10 h-10 border-2 border-gray-300 rounded-full font-bold text-gray-500" data-phase="phase-2-content">2</button>
+                            <span class="step-text mt-2 text-sm text-gray-500 text-center">Storage</span>
+                        </div>
+                        
+                        <div class="step-line"></div>
+
+                        <div class="flex flex-col items-center">
+                            <button class="step-item flex items-center justify-center w-10 h-10 border-2 border-gray-300 rounded-full font-bold text-gray-500" data-phase="phase-3-content">3</button>
+                            <span class="step-text mt-2 text-sm text-gray-500 text-center">Real-Time</span>
+                        </div>
+                        
+                        <div class="step-line"></div>
+                        
+                        <div class="flex flex-col items-center">
+                            <button class="step-item flex items-center justify-center w-10 h-10 border-2 border-gray-300 rounded-full font-bold text-gray-500" data-phase="phase-4-content">4</button>
+                            <span class="step-text mt-2 text-sm text-gray-500 text-center">Batch ETL</span>
+                        </div>
+                        
+                        <div class="step-line"></div>
+                        
+                        <div class="flex flex-col items-center">
+                            <button class="step-item flex items-center justify-center w-10 h-10 border-2 border-gray-300 rounded-full font-bold text-gray-500" data-phase="phase-5-content">5</button>
+                            <span class="step-text mt-2 text-sm text-gray-500 text-center">Orchestration</span>
+                        </div>
+                        
+                        <div class="step-line"></div>
+
+                        <div class="flex flex-col items-center">
+                            <button class="step-item flex items-center justify-center w-10 h-10 border-2 border-gray-300 rounded-full font-bold text-gray-500" data-phase="phase-6-content">6</button>
+                            <span class="step-text mt-2 text-sm text-gray-500 text-center">Serving</span>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="mt-8 relative">
+                    <div id="phase-1-content" class="phase-content active">
+                        <h3 class="text-2xl font-semibold text-stone-800 mb-4">Phase I: Data Sources & Ingestion (The Firehose)</h3>
+                        <div class="overflow-x-auto rounded-lg border border-gray-200">
+                            <table class="w-full divide-y divide-gray-200 text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider">Component</th>
+                                        <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider">Description</th>
+                                        <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider">DE Concept Utilized</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <tr>
+                                        <td class="px-4 py-4 font-medium text-gray-800 align-top">Transaction Stream</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top">Simulated stream of P2P transfers (user ID, merchant ID, amount, currency, timestamp, device ID, location).</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top"><strong class="font-medium text-gray-900">Real-Time Streaming</strong> (Kafka/Kinesis), <strong class="font-medium text-gray-900">Event Data Model</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-4 font-medium text-gray-800 align-top">User Profiles (DB)</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top">PostgreSQL database containing customer KYC (Name, Address, Enrollment Date).</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top"><strong class="font-medium text-gray-900">Change Data Capture (CDC)</strong> (Debezium/CDC connectors) to push database changes into the streaming platform.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-4 font-medium text-gray-800 align-top">Sanction Lists</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top">External, periodically updated list of high-risk entities.</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top"><strong class="font-medium text-gray-900">Batch Ingestion</strong>, API/SFTP polling, Data Standardization.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-4 font-medium text-gray-800 align-top">Ingestion Layer</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top">Kafka or Kinesis cluster to receive and buffer all raw events/data changes.</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top"><strong class="font-medium text-gray-900">Distributed Messaging Queue</strong>, Broker Management, Topic Design.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div id="phase-2-content" class="phase-content">
+                        <h3 class="text-2xl font-semibold text-stone-800 mb-4">Phase II: Storage Architecture (The Lakehouse)</h3>
+                        <p class="text-stone-600 mb-4">The project will use a Lakehouse approach to blend the scalability of a Data Lake with the structure and governance of a Data Warehouse (using Delta Lake/Iceberg format).</p>
+                        <div class="overflow-x-auto rounded-lg border border-gray-200">
+                            <table class="w-full divide-y divide-gray-200 text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider">Layer</th>
+                                        <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider">Description</th>
+                                        <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider">Purpose & Concept</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <tr>
+                                        <td class="px-4 py-4 font-medium text-gray-800 align-top">Bronze (Raw)</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top">Store raw, immutable data exactly as it arrived (JSON/AVRO/CSV).</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top"><strong class="font-medium text-gray-900">Immutability, Schema-on-Read, Data Lineage</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-4 font-medium text-gray-800 align-top">Silver (Staging/Cleaned)</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top">Apply basic schema enforcement, cleaning, and normalization. Handle data types, eliminate duplicates, and resolve raw IDs to common identifiers.</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top"><strong class="font-medium text-gray-900">Schema Evolution</strong> (e.g., using Delta Lake's feature to merge schema changes), <strong class="font-medium text-gray-900">Data Cleaning</strong>, <strong class="font-medium text-gray-900">Quality Checks (P0)</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-4 font-medium text-gray-800 align-top">Gold (Curated/Warehouse)</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top">Final, highly optimized layer for BI and ML feature generation. Designed using Dimensional Modeling.</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top"><strong class="font-medium text-gray-900">Dimensional Modeling</strong> (Star Schema), <strong class="font-medium text-gray-900">Slowly Changing Dimensions (SCD Type 2)</strong> for User/Merchant tables.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div id="phase-3-content" class="phase-content">
+                        <h3 class="text-2xl font-semibold text-stone-800 mb-4">Phase III: Real-Time Processing (The Sentinel Core)</h3>
+                        <p class="text-stone-600 mb-4">This phase uses a stream processing engine to calculate time-sensitive risk features.</p>
+                        <div class="overflow-x-auto rounded-lg border border-gray-200">
+                            <table class="w-full divide-y divide-gray-200 text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider">Component</th>
+                                        <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider">Description</th>
+                                        <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider">DE Concept Utilized</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <tr>
+                                        <td class="px-4 py-4 font-medium text-gray-800 align-top">Stream Engine</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top">Apache Flink or Spark Streaming.</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top"><strong class="font-medium text-gray-900">Stream Processing</strong>, High Availability, Fault Tolerance.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-4 font-medium text-gray-800 align-top">Velocity Features</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top">Calculate real-time aggregates, such as: *Transactions in the last 5 minutes by Device ID* and *Total transfer amount in the last 1 hour by User*.</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top"><strong class="font-medium text-gray-900">Windowing Techniques</strong> (Tumbling/Sliding), <strong class="font-medium text-gray-900">State Management</strong> (RocksDB/internal state).</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-4 font-medium text-gray-800 align-top">Late Data Handling</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top">Implement logic to handle data arriving out of order (e.g., a transaction from 5 minutes ago arriving now).</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top"><strong class="font-medium text-gray-900">Watermarking</strong>, <strong class="font-medium text-gray-900">Event Time vs. Processing Time</strong>.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-4 font-medium text-gray-800 align-top">Stream-Stream Joins</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top">Join the incoming Transaction Stream with the User Profile CDC stream (if a user's status changes).</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top"><strong class="font-medium text-gray-900">Real-Time Data Enrichment</strong>, Complex Stream Joins.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-4 font-medium text-gray-800 align-top">Output Stream</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top">Push the enriched transaction event along with its newly calculated real-time risk scores back to a Kafka topic.</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top"><strong class="font-medium text-gray-900">Decoupling</strong>, Event-Driven Architecture.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div id="phase-4-content" class="phase-content">
+                        <h3 class="text-2xl font-semibold text-stone-800 mb-4">Phase IV: Batch ETL & Feature Engineering (The Historical Ledger)</h3>
+                        <p class="text-stone-600 mb-4">This is run on a daily/hourly schedule via an Orchestrator.</p>
+                        <div class="overflow-x-auto rounded-lg border border-gray-200">
+                            <table class="w-full divide-y divide-gray-200 text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider">Component</th>
+                                        <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider">Description</th>
+                                        <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider">DE Concept Utilized</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <tr>
+                                        <td class="px-4 py-4 font-medium text-gray-800 align-top">Historical Feature Gen</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top">Use Spark/dbt to process data from the Silver layer into the Gold layer.</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top"><strong class="font-medium text-gray-900">Batch ETL/ELT</strong>, <strong class="font-medium text-gray-900">Scalable Data Processing</strong>.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-4 font-medium text-gray-800 align-top">SCD Type 2 Implementation</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top">For the `DimUser` table, track changes to fields like address or KYC status over time, ensuring historical reports are accurate.</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top"><strong class="font-medium text-gray-900">Slowly Changing Dimensions (SCD)</strong>.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-4 font-medium text-gray-800 align-top">Complex Aggregations</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top">Calculate long-term ML features (e.g., *Average transaction amount last 30 days*, *Percentage of transactions to new merchants*).</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top"><strong class="font-medium text-gray-900">SQL/PySpark Transformations</strong>, Performance Tuning (Partitioning, Clustering).</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-4 font-medium text-gray-800 align-top">Data Quality Enforcement</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top">Use Great Expectations or dbt tests to validate the Gold layer before serving.</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top"><strong class="font-medium text-gray-900">Data Quality Gates</strong>, Expectations (completeness, freshness, uniqueness).</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div id="phase-5-content" class="phase-content">
+                        <h3 class="text-2xl font-semibold text-stone-800 mb-4">Phase V: Orchestration & MLOps Integration</h3>
+                        <div class="overflow-x-auto rounded-lg border border-gray-200">
+                            <table class="w-full divide-y divide-gray-200 text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider">Component</th>
+                                        <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider">Description</th>
+                                        <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider">DE Concept Utilized</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <tr>
+                                        <td class="px-4 py-4 font-medium text-gray-800 align-top">Workflow Manager</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top">Apache Airflow or Prefect.</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top"><strong class="font-medium text-gray-900">Workflow Orchestration</strong>, DAG Design, Dependency Graph.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-4 font-medium text-gray-800 align-top">Daily DAG</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top">Run the batch ETL/SCD updates from Silver to Gold, followed by BI report generation.</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top"><strong class="font-medium text-gray-900">Task Dependencies</strong>, Idempotent Tasks.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-4 font-medium text-gray-800 align-top">ML Training DAG</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top">Automated trigger to train the fraud detection model using features from the Gold layer.</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top"><strong class="font-medium text-gray-900">Data Pipelining for ML</strong>, Cross-Functional Orchestration (MLOps).</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-4 font-medium text-gray-800 align-top">Monitoring</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top">Set up monitoring (Prometheus/Grafana) for data pipeline health, latency, and throughput.</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top"><strong class="font-medium text-gray-900">Observability</strong>, Alerting, SLA Tracking.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div id="phase-6-content" class="phase-content">
+                        <h3 class="text-2xl font-semibold text-stone-800 mb-4">Phase VI: Data Serving & Consumption (The Final Mile)</h3>
+                        <div class="overflow-x-auto rounded-lg border border-gray-200">
+                            <table class="w-full divide-y divide-gray-200 text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider">Component</th>
+                                        <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider">Description</th>
+                                        <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider">Purpose & Concept</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <tr>
+                                        <td class="px-4 py-4 font-medium text-gray-800 align-top">Feature Store</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top">A low-latency store (Redis or Feast) to hold the real-time velocity features and the pre-calculated historical features.</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top"><strong class="font-medium text-gray-900">Low-Latency Key-Value Store</strong>, <strong class="font-medium text-gray-900">Feature Store Pattern</strong> (unifying batch/streaming features).</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-4 font-medium text-gray-800 align-top">Real-Time Endpoint</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top">The NovaPay application queries this store upon transaction request to get the unified feature vector for the ML model.</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top"><strong class="font-medium text-gray-900">API/Service Layer</strong>, Sub-millisecond Read Latency.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-4 font-medium text-gray-800 align-top">BI/Reporting</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top">Tableau or Looker connects directly to the Gold layer (Star Schema) for regulatory and management reporting (e.g., fraud rates over time).</td>
+                                        <td class="px-4 py-4 text-gray-700 align-top"><strong class="font-medium text-gray-900">Data Warehouse Reporting</strong>, Query Optimization, Access Control.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-stack" class="page-content space-y-8">
+            <div class="bg-white p-6 sm:p-8 rounded-lg shadow-sm border border-stone-200">
+                <h2 class="text-3xl font-bold tracking-tight text-stone-900 mb-4">Suggested Technology Stack (Original)</h2>
+                <p class="text-lg text-stone-600 mb-8">This project uses a modern, industry-ready set of tools. The stack was chosen to provide a robust, scalable, and maintainable platform capable of handling the high-throughput and low-latency demands of a FinTech application like NovaPay.</p>
+                <div class="overflow-x-auto rounded-lg border border-gray-200">
+                    <table class="w-full divide-y divide-gray-200 text-sm">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider">Category</th>
+                                <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider">Suggested Tool</th>
+                                <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider">Reason for Choice</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <tr>
+                                <td class="px-4 py-4 font-medium text-gray-800 align-top">Programming Language</td>
+                                <td class="px-4 py-4 text-gray-700 align-top">Python (PySpark, Pandas)</td>
+                                <td class="px-4 py-4 text-gray-700 align-top">Standard for data engineering and ML.</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-4 font-medium text-gray-800 align-top">Streaming Ingestion</td>
+                                <td class="px-4 py-4 text-gray-700 align-top">Apache Kafka</td>
+                                <td class="px-4 py-4 text-gray-700 align-top">Industry standard, high throughput, durable message broker.</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-4 font-medium text-gray-800 align-top">Stream Processing</td>
+                                <td class="px-4 py-4 text-gray-700 align-top">Apache Flink or Spark Streaming</td>
+                                <td class="px-4 py-4 text-gray-700 align-top">Excellent for stateful, exactly-once, low-latency processing.</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-4 font-medium text-gray-800 align-top">Data Lake Storage</td>
+                                <td class="px-4 py-4 text-gray-700 align-top">Amazon S3 or Google Cloud Storage (GCS)</td>
+                                <td class="px-4 py-4 text-gray-700 align-top">Scalable, durable, and cost-effective cloud storage.</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-4 font-medium text-gray-800 align-top">Lakehouse Format</td>
+                                <td class="px-4 py-4 text-gray-700 align-top">Delta Lake (or Apache Iceberg)</td>
+                                <td class="px-4 py-4 text-gray-700 align-top">Provides ACID properties, schema evolution, and time travel.</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-4 font-medium text-gray-800 align-top">Batch Processing</td>
+                                <td class="px-4 py-4 text-gray-700 align-top">Apache Spark / PySpark</td>
+                                <td class="px-4 py-4 text-gray-700 align-top">Scalable computation engine for large datasets.</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-4 font-medium text-gray-800 align-top">Orchestration</td>
+                                <td class="px-4 py-4 text-gray-700 align-top">Apache Airflow</td>
+                                <td class="px-4 py-4 text-gray-700 align-top">Widely adopted, powerful tool for managing complex DAGs.</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-4 font-medium text-gray-800 align-top">Data Quality</td>
+                                <td class="px-4 py-4 text-gray-700 align-top">Great Expectations or dbt Tests</td>
+                                <td class="px-4 py-4 text-gray-700 align-top">Declarative validation of data quality and schema.</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-4 font-medium text-gray-800 align-top">Feature Serving</td>
+                                <td class="px-4 py-4 text-gray-700 align-top">Redis</td>
+                                <td class="px-4 py-4 text-gray-700 align-top">Extremely fast in-memory key-value store for low-latency feature lookups.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <!-- End of Existing Page Blocks -->
+
+        <!-- Start of NEW Production Blueprint Page -->
+        <div id="page-production" class="page-content space-y-8">
+            <div class="bg-white p-6 sm:p-8 rounded-lg shadow-sm border border-stone-200">
+                <h2 class="text-3xl font-bold tracking-tight text-stone-900 mb-4">Production Blueprint: Schemas, ELT, & IaC</h2>
+                <p class="text-lg text-stone-600 mb-6">This section details the specific elements required to build **The Sentinel** in a production environment, covering data schemas, advanced dbt transformation logic, and cloud-agnostic infrastructure definitions using Terraform.</p>
+
+                <div class="flex border-b border-stone-200 mb-6 space-x-4">
+                    <button class="sub-nav-button active py-2 text-sm text-stone-700" data-view="data-logic-view">
+                        Data Logic & Schemas (dbt Focus)
+                    </button>
+                    <button class="sub-nav-button py-2 text-sm text-stone-700" data-view="cloud-stack-view">
+                        Cloud Stacks (Terraform & Warehousing)
+                    </button>
+                </div>
+
+                <!-- Data Logic & Schemas View -->
+                <div id="data-logic-view" class="production-content active space-y-8">
+                    
+                    <div>
+                        <h3 class="text-2xl font-semibold text-stone-800 mb-4">Detailed Source Schemas</h3>
+                        <p class="text-stone-600 mb-4">Defining schemas precisely enables data quality checks and robust change management.</p>
+                        <div class="overflow-x-auto rounded-lg border border-gray-200">
+                            <table class="w-full divide-y divide-gray-200 text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider w-1/4">Source/Field</th>
+                                        <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider w-1/4">Data Type</th>
+                                        <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider w-1/2">Production Notes & Parameters</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <tr><td colspan="3" class="px-4 py-3 font-bold text-blue-600 bg-blue-50">Transaction Stream (Raw)</td></tr>
+                                    <tr><td class="px-4 py-2 font-medium">event_id, user_id_sender, user_id_receiver</td><td class="px-4 py-2">STRING</td><td class="px-4 py-2">Volume: 50M+ events/day. Latency Target: $<100ms$ processing time.</td></tr>
+                                    <tr><td class="px-4 py-2 font-medium">amount</td><td class="px-4 py-2">DECIMAL(18, 2)</td><td class="px-4 py-2">Currency amount. Must be non-null and positive.</td></tr>
+                                    <tr><td class="px-4 py-2 font-medium">timestamp_event</td><td class="px-4 py-2">TIMESTAMP</td><td class="px-4 py-2">Key Parameter for Watermarking and Event Time Windows.</td></tr>
+                                    <tr><td colspan="3" class="px-4 py-3 font-bold text-blue-600 bg-blue-50">User Profiles (CDC)</td></tr>
+                                    <tr><td class="px-4 py-2 font-medium">user_id, address_kyc, kyc_status</td><td class="px-4 py-2">STRING</td><td class="px-4 py-2">Source for **SCD Type 2**. `op_type` (I/U/D) dictates handling.</td></tr>
+                                    <tr><td class="px-4 py-2 font-medium">last_updated_ts</td><td class="px-4 py-2">TIMESTAMP</td><td class="px-4 py-2">Used to sequence changes and determine validity periods.</td></tr>
+                                    <tr><td colspan="3" class="px-4 py-3 font-bold text-blue-600 bg-blue-50">Sanction List (Batch)</td></tr>
+                                    <tr><td class="px-4 py-2 font-medium">entity_id, match_key</td><td class="px-4 py-2">STRING</td><td class="px-4 py-2">Requires fuzzy matching/probabilistic linkage in Silver ETL. Update Frequency: Daily.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-2xl font-semibold text-stone-800 mb-4">ELT Logic Design with dbt (Data Build Tool)</h3>
+                        <p class="text-stone-600 mb-4">dbt models manage the critical transformations from the Silver Lakehouse to the Gold Data Warehouse (Snowflake/BigQuery/Synapse).</p>
+                        
+                        <!-- dbt Sub-Navigation -->
+                        <div class="flex mb-4 space-x-4">
+                            <button class="py-2 px-4 rounded-lg text-sm font-medium border border-blue-600 text-blue-600 bg-blue-50 hover:bg-blue-100" data-dbt-model="dbt-staging">
+                                Silver Layer (Staging & Cleaning)
+                            </button>
+                            <button class="py-2 px-4 rounded-lg text-sm font-medium border border-stone-300 text-stone-700 hover:bg-stone-100" data-dbt-model="dbt-gold">
+                                Gold Layer (Dimensional & Feature Gen)
+                            </button>
+                        </div>
+                        
+                        <div id="dbt-staging" class="dbt-model-content active overflow-x-auto rounded-lg border border-gray-200">
+                            <h4 class="px-4 py-3 text-lg font-bold text-stone-900 bg-gray-50 border-b border-gray-200">Silver Layer dbt Models</h4>
+                            <table class="w-full divide-y divide-gray-200 text-sm">
+                                <thead class="bg-white">
+                                    <tr>
+                                        <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider w-1/4">Model</th>
+                                        <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider w-1/2">Purpose & Concept</th>
+                                        <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider w-1/4">Key Quality Checks (dbt Tests)</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <tr><td class="px-4 py-2 font-medium">stg_transactions</td><td class="px-4 py-2">Type casting, standardization, and initial filtering from Bronze.</td><td class="px-4 py-2">`unique(event_id)`, `not_null(user_id_sender)`, `accepted_values(currency)`</td></tr>
+                                    <tr><td class="px-4 py-2 font-medium">stg_users_cdc</td><td class="px-4 py-2">Apply raw CDC logic to deduplicate changes and select the latest record for a given day/timestamp.</td><td class="px-4 py-2">Check for impossible dates, ensure `op_type` is valid.</td></tr>
+                                    <tr><td class="px-4 py-2 font-medium">stg_sanctions</td><td class="px-4 py-2">Format standardization and create normalized keys for probabilistic joining later.</td><td class="px-4 py-2">Check entity uniqueness, `not_null(match_key)`.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div id="dbt-gold" class="dbt-model-content overflow-x-auto rounded-lg border border-gray-200">
+                            <h4 class="px-4 py-3 text-lg font-bold text-stone-900 bg-gray-50 border-b border-gray-200">Gold Layer dbt Models (Warehouse)</h4>
+                            <table class="w-full divide-y divide-gray-200 text-sm">
+                                <thead class="bg-white">
+                                    <tr>
+                                        <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider w-1/4">Model</th>
+                                        <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider w-1/2">Purpose & Concept</th>
+                                        <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider w-1/4">Data Engineering Concept</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <tr><td class="px-4 py-2 font-medium">dim_user_scd</td><td class="px-4 py-2">Create the **Slowly Changing Dimension (SCD) Type 2** table for historical user profiles.</td><td class="px-4 py-2"><strong class="font-medium text-gray-900">SCD Type 2 Implementation</strong> (using `dbt_utils.surrogate_key`)</td></tr>
+                                    <tr><td class="px-4 py-2 font-medium">fact_transactions</td><td class="px-4 py-2">The core aggregated fact table for BI and ML training. Joins transactions with the appropriate `dim_user_scd` record based on transaction timestamp.</td><td class="px-4 py-2"><strong class="font-medium text-gray-900">Dimensional Modeling</strong> (Star Schema)</td></tr>
+                                    <tr><td class="px-4 py-2 font-medium">dim_features_batch</td><td class="px-4 py-2">Calculate complex, long-term ML features (e.g., *Total transaction count in last 90 days*, *Percentage of new merchants*).</td><td class="px-4 py-2"><strong class="font-medium text-gray-900">Advanced Feature Engineering</strong> (Window Functions, Aggregations)</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cloud Stacks View -->
+                <div id="cloud-stack-view" class="production-content space-y-8">
+                    <h3 class="text-2xl font-semibold text-stone-800 mb-4">Cloud Stacks: Terraform and Enhanced Warehousing</h3>
+                    <p class="text-stone-600 mb-4">These three outlines show how to implement the Sentinel architecture using core services from each major cloud provider, with **Terraform (IaC)** unifying the deployment.</p>
+
+                    <!-- Cloud Stack Selector -->
+                    <div class="flex mb-6 space-x-3">
+                        <button class="cloud-select-btn active py-2 px-4 rounded-lg text-sm font-medium border border-blue-600 text-blue-600 bg-blue-50 hover:bg-blue-100" data-stack="aws-stack">
+                            AWS (Snowflake Focus)
+                        </button>
+                        <button class="cloud-select-btn py-2 px-4 rounded-lg text-sm font-medium border border-stone-300 text-stone-700 hover:bg-stone-100" data-stack="gcp-stack">
+                            GCP (BigQuery Focus)
+                        </button>
+                        <button class="cloud-select-btn py-2 px-4 rounded-lg text-sm font-medium border border-stone-300 text-stone-700 hover:bg-stone-100" data-stack="azure-stack">
+                            Azure (Synapse Focus)
+                        </button>
+                    </div>
+
+                    <div id="aws-stack" class="cloud-stack-content active overflow-x-auto rounded-lg border border-gray-200">
+                        <h4 class="px-4 py-3 text-lg font-bold text-stone-900 bg-gray-50 border-b border-gray-200">Stack A: AWS with Snowflake (Managed Services)</h4>
+                        <table class="w-full divide-y divide-gray-200 text-sm">
+                            <thead class="bg-white">
+                                <tr>
+                                    <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider w-1/4">Component</th>
+                                    <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider w-1/4">AWS Service</th>
+                                    <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider w-1/4">Terraform Resource</th>
+                                    <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider w-1/4">Key Concept</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <tr><td class="px-4 py-2 font-medium">Ingestion (Streaming)</td><td class="px-4 py-2">Kinesis Data Streams</td><td class="px-4 py-2">`aws_kinesis_stream`</td><td class="px-4 py-2">Real-Time Messaging</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">Data Lake Storage</td><td class="px-4 py-2">S3 (Delta Lake/Iceberg)</td><td class="px-4 py-2">`aws_s3_bucket`</td><td class="px-4 py-2">Bronze/Silver Layers</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">Stream Processing</td><td class="px-4 py-2">Kinesis Data Analytics (Flink)</td><td class="px-4 py-2">`aws_kinesisanalyticsv2_application`</td><td class="px-4 py-2">State Management, Windowing</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">Data Warehouse (Gold)</td><td class="px-4 py-2"><strong class="font-medium text-blue-600">Snowflake</strong> (running on AWS)</td><td class="px-4 py-2">`snowflake_database`, `snowflake_pipe`</td><td class="px-4 py-2">High-Performance ELT Target</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">Batch Processing/dbt</td><td class="px-4 py-2">AWS Glue (Spark) / dbt Cloud</td><td class="px-4 py-2">`aws_glue_job`</td><td class="px-4 py-2">Batch ELT, T-SQL</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">Orchestration</td><td class="px-4 py-2">MWAA (Managed Airflow)</td><td class="px-4 py-2">`aws_mwaa_environment`</td><td class="px-4 py-2">DAG Management, Scheduling</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">Feature Store (RT)</td><td class="px-4 py-2">ElastiCache (Redis)</td><td class="px-4 py-2">`aws_elasticache_replication_group`</td><td class="px-4 py-2">Low-Latency Serving</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div id="gcp-stack" class="cloud-stack-content overflow-x-auto rounded-lg border border-gray-200">
+                        <h4 class="px-4 py-3 text-lg font-bold text-stone-900 bg-gray-50 border-b border-gray-200">Stack B: GCP with BigQuery (Serverless Focus)</h4>
+                        <table class="w-full divide-y divide-gray-200 text-sm">
+                            <thead class="bg-white">
+                                <tr>
+                                    <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider w-1/4">Component</th>
+                                    <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider w-1/4">GCP Service</th>
+                                    <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider w-1/4">Terraform Resource</th>
+                                    <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider w-1/4">Key Concept</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <tr><td class="px-4 py-2 font-medium">Ingestion (Streaming)</td><td class="px-4 py-2">Cloud Pub/Sub</td><td class="px-4 py-2">`google_pubsub_topic`</td><td class="px-4 py-2">Decoupling, At-least-once delivery</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">Data Lake Storage</td><td class="px-4 py-2">Cloud Storage (GCS)</td><td class="px-4 py-2">`google_storage_bucket`</td><td class="px-4 py-2">Bronze/Silver Layers</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">Stream Processing</td><td class="px-4 py-2">Cloud Dataflow (Apache Beam)</td><td class="px-4 py-2">`google_dataflow_job`</td><td class="px-4 py-2">Serverless Streaming ETL</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">Data Warehouse (Gold)</td><td class="px-4 py-2"><strong class="font-medium text-blue-600">BigQuery (BQ)</strong></td><td class="px-4 py-2">`google_bigquery_dataset`</td><td class="px-4 py-2">Serverless, Columnar Warehouse</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">Batch Processing/dbt</td><td class="px-4 py-2">Dataproc / Cloud Composer (dbt)</td><td class="px-4 py-2">`google_dataproc_cluster`</td><td class="px-4 py-2">Scalable Data Transformations</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">Orchestration</td><td class="px-4 py-2">Cloud Composer (Airflow)</td><td class="px-4 py-2">`google_composer_environment`</td><td class="px-4 py-2">DAG Management, Scheduling</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">Feature Store (RT)</td><td class="px-4 py-2">Memorystore (Redis)</td><td class="px-4 py-2">`google_redis_instance`</td><td class="px-4 py-2">Low-Latency Serving</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div id="azure-stack" class="cloud-stack-content overflow-x-auto rounded-lg border border-gray-200">
+                        <h4 class="px-4 py-3 text-lg font-bold text-stone-900 bg-gray-50 border-b border-gray-200">Stack C: Azure with Synapse (Unified Platform Focus)</h4>
+                        <table class="w-full divide-y divide-gray-200 text-sm">
+                            <thead class="bg-white">
+                                <tr>
+                                    <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider w-1/4">Component</th>
+                                    <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider w-1/4">Azure Service</th>
+                                    <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider w-1/4">Terraform Resource</th>
+                                    <th class="px-4 py-3 font-semibold text-left text-gray-600 uppercase tracking-wider w-1/4">Key Concept</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <tr><td class="px-4 py-2 font-medium">Ingestion (Streaming)</td><td class="px-4 py-2">Event Hubs</td><td class="px-4 py-2">`azurerm_eventhub`</td><td class="px-4 py-2">High-Throughput Event Ingestion</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">Data Lake Storage</td><td class="px-4 py-2">ADLS Gen2</td><td class="px-4 py-2">`azurerm_storage_account`</td><td class="px-4 py-2">Bronze/Silver Layers</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">Stream Processing</td><td class="px-4 py-2">Azure Stream Analytics / Databricks</td><td class="px-4 py-2">`azurerm_stream_analytics_job`</td><td class="px-4 py-2">Continuous Data Processing</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">Data Warehouse (Gold)</td><td class="px-4 py-2"><strong class="font-medium text-blue-600">Synapse Analytics</strong> (SQL Pool)</td><td class="px-4 py-2">`azurerm_synapse_sql_pool`</td><td class="px-4 py-2">MPP Architecture, Analytical Processing</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">Batch Processing/dbt</td><td class="px-4 py-2">Azure Databricks / Data Factory</td><td class="px-4 py-2">`azurerm_databricks_workspace`</td><td class="px-4 py-2">Scalable Spark Processing</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">Orchestration</td><td class="px-4 py-2">Azure Data Factory (ADF)</td><td class="px-4 py-2">`azurerm_data_factory`</td><td class="px-4 py-2">Pipeline Orchestration</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">Feature Store (RT)</td><td class="px-4 py-2">Azure Cache for Redis</td><td class="px-4 py-2">`azurerm_redis_cache`</td><td class="px-4 py-2">Low-Latency Serving</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        <!-- End of NEW Production Blueprint Page -->
+
+    </main>
+
+    <footer class="bg-white border-t border-stone-200 mt-12">
+        <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 text-center text-sm text-stone-500">
+            <p>&copy; 2025 The Sentinel Project Explorer. An interactive view of the FinTech Data Engineering plan.</p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const navButtons = document.querySelectorAll('.nav-button');
+            const mobileNav = document.getElementById('mobile-nav');
+            const pages = document.querySelectorAll('.page-content');
+            
+            const stepButtons = document.querySelectorAll('.step-item');
+            const stepTexts = document.querySelectorAll('.step-text');
+            const phaseContents = document.querySelectorAll('.phase-content');
+            
+            const productionViews = document.querySelectorAll('.production-content');
+            const subNavButtons = document.querySelectorAll('.sub-nav-button');
+            
+            const cloudSelectBtns = document.querySelectorAll('.cloud-select-btn');
+            const cloudStackContents = document.querySelectorAll('.cloud-stack-content');
+
+            const dbtSelectBtns = document.querySelectorAll('[data-dbt-model]');
+            const dbtModelContents = document.querySelectorAll('.dbt-model-content');
+
+            function setActivePage(pageId) {
+                pages.forEach(page => {
+                    page.classList.toggle('active', page.id === pageId);
+                });
+                
+                navButtons.forEach(button => {
+                    button.classList.toggle('active', button.dataset.target === pageId);
+                });
+                
+                if (mobileNav.value !== pageId) {
+                    mobileNav.value = pageId;
+                }
+            }
+            
+            function setActivePhase(phaseId) {
+                phaseContents.forEach(content => {
+                    content.classList.toggle('active', content.id === phaseId);
+                });
+                
+                stepButtons.forEach((button, index) => {
+                    const isActive = button.dataset.phase === phaseId;
+                    button.classList.toggle('active', isActive);
+                    stepTexts[index].classList.toggle('active', isActive);
+                });
+            }
+            
+            function setActiveProductionView(viewId) {
+                productionViews.forEach(view => {
+                    view.classList.toggle('active', view.id === viewId);
+                });
+                
+                subNavButtons.forEach(button => {
+                    button.classList.toggle('active', button.dataset.view === viewId);
+                });
+            }
+            
+            function setActiveCloudStack(stackId) {
+                cloudStackContents.forEach(content => {
+                    content.classList.toggle('active', content.id === stackId);
+                });
+                
+                cloudSelectBtns.forEach(button => {
+                    button.classList.toggle('active', button.dataset.stack === stackId);
+                    button.classList.toggle('border-blue-600', button.dataset.stack === stackId);
+                    button.classList.toggle('bg-blue-50', button.dataset.stack === stackId);
+                    button.classList.toggle('text-blue-600', button.dataset.stack === stackId);
+                    button.classList.toggle('border-stone-300', button.dataset.stack !== stackId);
+                    button.classList.toggle('bg-white', button.dataset.stack !== stackId);
+                    button.classList.toggle('text-stone-700', button.dataset.stack !== stackId);
+                });
+            }
+            
+            function setActiveDbtModel(modelId) {
+                dbtModelContents.forEach(content => {
+                    content.classList.toggle('active', content.id === modelId);
+                });
+                
+                dbtSelectBtns.forEach(button => {
+                    const isActive = button.dataset.dbtModel === modelId;
+                    button.classList.toggle('border-blue-600', isActive);
+                    button.classList.toggle('bg-blue-50', isActive);
+                    button.classList.toggle('text-blue-600', isActive);
+                    button.classList.toggle('border-stone-300', !isActive);
+                    button.classList.toggle('bg-white', !isActive);
+                    button.classList.toggle('text-stone-700', !isActive);
+                });
+            }
+
+
+            navButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    setActivePage(button.dataset.target);
+                });
+            });
+
+            mobileNav.addEventListener('change', () => {
+                setActivePage(mobileNav.value);
+            });
+
+            stepButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    setActivePhase(button.dataset.phase);
+                });
+            });
+            
+            subNavButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    setActiveProductionView(button.dataset.view);
+                });
+            });
+            
+            cloudSelectBtns.forEach(button => {
+                button.addEventListener('click', () => {
+                    setActiveCloudStack(button.dataset.stack);
+                });
+            });
+
+            dbtSelectBtns.forEach(button => {
+                button.addEventListener('click', () => {
+                    setActiveDbtModel(button.dataset.dbtModel);
+                });
+            });
+
+
+            // Initial Setup
+            setActivePage('page-overview');
+            setActivePhase('phase-1-content');
+            setActiveProductionView('data-logic-view');
+            setActiveCloudStack('aws-stack');
+            setActiveDbtModel('dbt-staging');
+        });
+    </script>
+</body>
+</html>
